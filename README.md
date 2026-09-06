@@ -23,6 +23,7 @@ Everything runs locally in the browser. There are no network calls, no CDNs and 
 - **Readable text everywhere** — black/white ink chosen per swatch using relative luminance.
 - **Live RGB & HSL** — shown in mono text on hover (always visible on mobile).
 - **Saved palettes** — save, load, copy, delete, and favorite. Favorites are pinned to the top and filterable, with polished empty states.
+- **Contrast checker** — toggle an accessibility panel that shows each swatch's WCAG contrast ratio against white and black text, with an AAA/AA/Fail badge for normal text.
 - **Export anywhere** — copy as CSS variables, JSON array or plain list; download `.css`, `.json`, or a rendered `.png` of the palette.
 - **Keyboard-first** — generate, save, copy and lock without touching the mouse, plus a shortcuts help modal.
 - **Dark & light themes** and a fully responsive, accessible layout.
@@ -56,6 +57,7 @@ Then open `index.html` directly in any modern browser (it works from `file://`),
 | `S`             | Save the current palette     |
 | `C`             | Copy all HEX values          |
 | `1` – `5`       | Toggle lock on that swatch   |
+| `A`             | Toggle the contrast checker  |
 | `?`             | Open the shortcuts help      |
 | `Esc`           | Close the open dialog        |
 

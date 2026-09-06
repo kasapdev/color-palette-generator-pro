@@ -11,6 +11,7 @@
   var SWATCH_COUNT = 5;
   var SAVED_KEY = 'cpg.saved';      // array of {id, colors[], name, ts, fav}
   var STATE_KEY = 'cpg.state';      // {colors, locked, harmony}
+  var A11Y_KEY = 'cpg.a11y';        // boolean — contrast-checker panel visible
 
   /* ============================================================
      COLOR MATH
@@ -104,6 +105,23 @@
     return 'hsl(' + h.h + ', ' + h.s + '%, ' + h.l + '%)';
   }
 
+  // WCAG relative-luminance contrast ratio between two hex colors. 1 (no
+  // contrast) to 21 (black on white). https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio
+  function contrastRatio(hexA, hexB) {
+    var a = hexToRgb(hexA), b = hexToRgb(hexB);
+    if (!a || !b) return 0;
+    var la = luminance(a.r, a.g, a.b) + 0.05;
+    var lb = luminance(b.r, b.g, b.b) + 0.05;
+    return la > lb ? la / lb : lb / la;
+  }
+
+  // WCAG 2.x pass level for a contrast ratio: 'AAA' | 'AA' | 'Fail'.
+  // Normal-text thresholds (7:1 / 4.5:1) unless largeText is true (4.5:1 / 3:1).
+  function wcagLevel(ratio, largeText) {
+    if (largeText) return ratio >= 4.5 ? 'AAA' : ratio >= 3 ? 'AA' : 'Fail';
+    return ratio >= 7 ? 'AAA' : ratio >= 4.5 ? 'AA' : 'Fail';
+  }
+
   /* ============================================================
      PALETTE GENERATION (HSL harmony math)
      ============================================================ */
@@ -188,6 +206,7 @@
     locked: [false, false, false, false, false],
     harmony: 'auto'
   };
+  var a11yOn = false;
 
   function loadState() {
     var saved = WUS.store.get(STATE_KEY, null);
@@ -202,6 +221,9 @@
     }
   }
   function persistState() { WUS.store.set(STATE_KEY, state); }
+
+  function loadA11y() { a11yOn = !!WUS.store.get(A11Y_KEY, false); }
+  function persistA11y() { WUS.store.set(A11Y_KEY, a11yOn); }
 
   /* ============================================================
      GENERATION + RENDER
@@ -228,6 +250,27 @@
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
     }
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>';
+  }
+
+  // One pill: contrast ratio + WCAG level of `fgHex` text on `bgHex`.
+  function buildContrastRow(bgHex, fgHex, label) {
+    var ratio = contrastRatio(bgHex, fgHex);
+    var level = wcagLevel(ratio, false);
+    var row = WUS.el('div', { class: 'contrast-row level-' + level.toLowerCase() });
+    row.appendChild(WUS.el('span', { class: 'dot' }));
+    row.appendChild(WUS.el('span', { class: 'contrast-label', text: label }));
+    row.appendChild(WUS.el('span', { text: ratio.toFixed(2) + ':1' }));
+    row.appendChild(WUS.el('span', { class: 'contrast-level', text: level }));
+    row.setAttribute('title', label + ': ' + ratio.toFixed(2) + ':1 contrast — WCAG ' + level + ' (normal text)');
+    return row;
+  }
+
+  // Accessibility panel: can white or black text sit on this swatch and stay readable?
+  function buildContrastPanel(hex) {
+    var wrap = WUS.el('div', { class: 'contrast', 'aria-label': 'Text contrast against this color' });
+    wrap.appendChild(buildContrastRow(hex, '#FFFFFF', 'White text'));
+    wrap.appendChild(buildContrastRow(hex, '#000000', 'Black text'));
+    return wrap;
   }
 
   function buildSwatch(hex, index) {
@@ -272,6 +315,7 @@
     meta.appendChild(WUS.el('span', { text: rgbString(hex) }));
     meta.appendChild(WUS.el('span', { text: hslString(hex) }));
     body.appendChild(meta);
+    if (a11yOn) body.appendChild(buildContrastPanel(hex));
     sw.appendChild(body);
 
     // Click anywhere copies HEX
@@ -544,6 +588,21 @@
   $('#copy-all').addEventListener('click', copyAllHex);
 
   /* ============================================================
+     ACCESSIBILITY / CONTRAST-CHECKER MODE
+     ============================================================ */
+
+  var a11yToggleEl = $('#a11y-toggle');
+  function setA11y(on) {
+    a11yOn = on;
+    a11yToggleEl.setAttribute('aria-pressed', on ? 'true' : 'false');
+    a11yToggleEl.classList.toggle('is-active', on);
+    persistA11y();
+    render();
+  }
+  function toggleA11y() { setA11y(!a11yOn); }
+  a11yToggleEl.addEventListener('click', toggleA11y);
+
+  /* ============================================================
      SHORTCUTS HELP MODAL
      ============================================================ */
 
@@ -566,6 +625,7 @@
   WUS.registerShortcut('s', saveCurrent, 'Save current palette');
   WUS.registerShortcut('c', copyAllHex, 'Copy all HEX values');
   WUS.registerShortcut('?', openHelp, 'Show keyboard shortcuts');
+  WUS.registerShortcut('a', toggleA11y, 'Toggle contrast checker');
   // 1-5 toggle locks
   for (var k = 1; k <= SWATCH_COUNT; k++) {
     (function (idx) {
@@ -579,6 +639,9 @@
 
   function init() {
     loadState();
+    loadA11y();
+    a11yToggleEl.setAttribute('aria-pressed', a11yOn ? 'true' : 'false');
+    a11yToggleEl.classList.toggle('is-active', a11yOn);
     // reflect harmony in segmented control
     $$('button', harmonyEl).forEach(function (b) {
       var on = b.getAttribute('data-harmony') === state.harmony;
