@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.0] - 2026-09-06
+
+### Added
+
+- Contrast checker mode (toggle button in the topbar, or press `A`): each swatch shows its WCAG contrast ratio against white and black text with an AAA/AA/Fail badge, computed from the same relative-luminance math already used to pick readable ink color. The preference persists in `localStorage`.
+
 ## [1.0.1] - 2026-09-06
 
 ### Fixed
